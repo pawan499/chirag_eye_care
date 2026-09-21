@@ -1,0 +1,3 @@
+import { env } from '../config/env.js';
+export function notFound(req, _res, next) { next(Object.assign(new Error(`Route ${req.method} ${req.originalUrl} not found`), { statusCode: 404 })); }
+export function errorHandler(err, _req, res, _next) { const status = err.statusCode || (err.name === 'CastError' ? 400 : err.code === 11000 ? 409 : 500); const message = err.code === 11000 ? 'A record with that value already exists' : err.message || 'Internal server error'; if (status >= 500) console.error(err); res.status(status).json({ success: false, message: env.nodeEnv === 'production' && status === 500 ? 'Internal server error' : message, ...(err.errors?.length && { errors: err.errors }) }); }
