@@ -127,3 +127,34 @@ test('vision, diagnoses and prescription details survive creation, history and p
     { eyeExamination: { rightEye: { iop: -1 } } },
   ]) await post('/visits', { patient: patient._id, ...payload }).expect(400);
 });
+
+test('payment edits require reasons, retain audit history, update balances and survive patient deletion', async () => {
+  const login = await request(app).post('/api/v1/auth/login').send({email:'owner@test.local',password:'password123'}).expect(200);
+  const token = `Bearer ${login.body.data.token}`;
+  const post = (path, data) => request(app).post(`/api/v1${path}`).set('Authorization',token).send(data);
+  const patient = (await post('/patients',{name:'Audited payment patient'}).expect(201)).body.data;
+  const order = (await post('/spectacle-orders',{patient:patient._id,framePrice:500}).expect(201)).body.data;
+  const payment = (await post('/payments',{patient:patient._id,spectacleOrder:order._id,amount:200,paymentMethod:'CASH'}).expect(201)).body.data;
+  const patch = data => request(app).patch(`/api/v1/payments/${payment._id}`).set('Authorization',token).send(data);
+  await request(app).patch(`/api/v1/payments/${payment._id}`).send({amount:100,editNote:'Correction'}).expect(401);
+  await patch({amount:100}).expect(400);
+  await patch({amount:100,editNote:'   '}).expect(400);
+  await patch({amount:600,editNote:'Too much'}).expect(400);
+  const edited = (await patch({amount:150,paymentMethod:'UPI',editNote:'Corrected receipt amount'}).expect(200)).body.data;
+  expect(edited.editHistory).toHaveLength(1);
+  expect(edited.editHistory[0]).toMatchObject({note:'Corrected receipt amount',before:{amount:200,paymentMethod:'CASH'},after:{amount:150,paymentMethod:'UPI'}});
+  expect(edited.editedAt).toBeTruthy();
+  const receipt = await request(app).get(`/api/v1/receipts/order/${order._id}`).set('Authorization',token).expect(200);
+  expect(receipt.body.data.order).toMatchObject({advanceAmount:150,remainingAmount:350});
+  const again = (await patch({referenceNumber:'UPI-123',editNote:'Added reference'}).expect(200)).body.data;
+  expect(again.editHistory).toHaveLength(2);
+  await request(app).delete(`/api/v1/patients/${patient._id}`).set('Authorization',token).expect(200);
+  const Patient = (await import('../src/models/Patient.js')).default;
+  const retained = await Patient.findById(patient._id).lean();
+  expect(retained).toMatchObject({ name: 'Audited payment patient', isActive: false, patientId: patient.patientId });
+  const preservedBill = await request(app).get(`/api/v1/receipts/order/${order._id}`).set('Authorization',token).expect(200);
+  expect(preservedBill.body.data.order._id).toBe(order._id);
+  await request(app).get(`/api/v1/patients/${patient._id}`).set('Authorization',token).expect(404);
+  const history = await request(app).get(`/api/v1/payments?patient=${patient._id}`).set('Authorization',token).expect(200);
+  expect(history.body.data[0].editHistory).toHaveLength(2);
+});

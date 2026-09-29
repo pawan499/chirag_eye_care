@@ -13,3 +13,5 @@ export const orderPatch = orderInput.omit({ patient: true, visit: true }).extend
 export const paymentInput = z.object({ patient: id, visit: id.optional(), spectacleOrder: id.optional(), amount: positive, paymentMethod: z.enum(['CASH','UPI','CARD','OTHER']), paymentDate: optionalDate, referenceNumber: z.string().max(200).optional(), notes: z.string().max(1000).optional() });
 export const loginInput = z.object({ email: z.string().email(), password: z.string().min(8).max(200) });
 export const passwordInput = z.object({ currentPassword: z.string().min(8), newPassword: z.string().min(8).max(200) });
+
+export const paymentPatch = paymentInput.pick({ amount: true, paymentMethod: true, paymentDate: true, referenceNumber: true, notes: true }).partial().extend({ editNote: z.string().trim().min(1, "Reason for editing is required").max(2000) });
