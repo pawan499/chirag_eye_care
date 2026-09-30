@@ -1,5 +1,7 @@
+import { ownedSchema } from '../utils/ownership.js';
 import mongoose from 'mongoose';
 const editSchema = new mongoose.Schema({ note: { type: String, required: true }, editedAt: { type: Date, required: true }, editedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, before: mongoose.Schema.Types.Mixed, after: mongoose.Schema.Types.Mixed }, { _id: false });
 const schema = new mongoose.Schema({ editHistory: { type: [editSchema], default: [] }, editedAt: Date, paymentId: { type: String, unique: true, immutable: true, index: true }, patient: { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true, index: true }, visit: { type: mongoose.Schema.Types.ObjectId, ref: 'Visit', index: true }, spectacleOrder: { type: mongoose.Schema.Types.ObjectId, ref: 'SpectacleOrder', index: true }, amount: { type: Number, required: true, min: 0.01 }, paymentMethod: { type: String, required: true, enum: ['CASH', 'UPI', 'CARD', 'OTHER'], index: true }, paymentDate: { type: Date, default: Date.now, index: true }, referenceNumber: String, notes: String, status: { type: String, enum: ['COMPLETED'], default: 'COMPLETED', index: true }, createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' } }, { timestamps: true });
 schema.index({ paymentDate: -1, status: 1, paymentMethod: 1 });
+ownedSchema(schema);
 export default mongoose.model('Payment', schema);

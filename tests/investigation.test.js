@@ -10,7 +10,7 @@ describe('registration investigation', () => {
       pd: 62, remarks: 'Review findings',
     };
     const input = patientInput.parse({ name: 'Test patient', investigation });
-    const patient = new Patient(input);
+    const patient = new Patient({ ...input, owner: '507f1f77bcf86cd799439011' });
     expect(patient.validateSync()).toBeUndefined();
     expect(patient.toObject().investigation).toEqual(investigation);
   });
